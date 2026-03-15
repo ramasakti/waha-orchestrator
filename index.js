@@ -88,6 +88,6 @@ app.post("/sessions", (req, res) => {
     }
 });
 
-app.listen(8081, () => {
-    console.log("Session Manager running on 127.0.0.1:8081");
+app.listen(4000, () => {
+    console.log("Session Manager running on 127.0.0.1:4000");
 });
