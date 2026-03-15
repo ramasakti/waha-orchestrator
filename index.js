@@ -23,6 +23,7 @@ function validSessionId(id) {
 
 app.post("/sessions", (req, res) => {
     const { sessionId } = req.body;
+    console.log(sessionId, validSessionId(sessionId))
 
     if (!sessionId || !validSessionId(sessionId)) {
         return res.status(400).json({ error: "Invalid sessionId" });
