@@ -11,7 +11,7 @@ const stateFile = path.join(__dirname, "state.json");
 
 function loadState() {
     if (!fs.existsSync(stateFile)) {
-        fs.writeFileSync(stateFile, JSON.stringify({ lastPort: 3100 }, null, 2));
+        fs.writeFileSync(stateFile, JSON.stringify({ lastPort: config.START_PORT }, null, 2));
     }
     return JSON.parse(fs.readFileSync(stateFile, "utf8"));
 }
@@ -33,7 +33,6 @@ function serviceExists(sessionId) {
 
 app.post("/sessions", (req, res) => {
     const { sessionId } = req.body;
-    console.log("Creating session:", sessionId);
 
     if (!sessionId || !validSessionId(sessionId)) {
         return res.status(400).json({ error: "Invalid sessionId" });
@@ -65,22 +64,9 @@ app.post("/sessions", (req, res) => {
         insertIndex++; // insert setelah 'services:'
 
         // service block dengan indentasi 2 spasi
-        const serviceBlock = `
-  waha-${sessionId}:
-    image: devlikeapro/waha:gows
-    container_name: waha-${sessionId}
-    environment:
-      - WAHA_SESSION=${sessionId}
-    env_file:
-      - .env
-    volumes:
-      - ./sessions/${sessionId}:/app/sessions
-    ports:
-      - "${port}:3000"
-    restart: always
-    networks:
-      - waha_network
-`;
+        let serviceBlock = fs.readFileSync(path.join(__dirname, "docker-compose.yml.example"), "utf8");
+        serviceBlock = serviceBlock.replaceAll("{port}", port);
+        serviceBlock = serviceBlock.replaceAll("{session}", sessionId);
 
         // masukkan service
         lines.splice(insertIndex, 0, serviceBlock);
@@ -93,10 +79,10 @@ app.post("/sessions", (req, res) => {
         fs.appendFileSync(config.NGINX_CONF, nginxAppend);
 
         // 4️⃣ Pull image dulu kalau belum ada
-        execSync(`docker image inspect devlikeapro/waha:gows || docker pull devlikeapro/waha:gows`, { stdio: "inherit" });
+        execSync(`docker image inspect devlikeapro/waha-plus:gows || docker pull devlikeapro/waha-plus:gows`, { stdio: "inherit" });
 
         // 5️⃣ Jalankan container
-        execSync(`cd ${config.WAHA_ROOT} && docker compose up -d waha-${sessionId}`, { stdio: "inherit" });
+        execSync(`docker compose up -d waha-${sessionId}`, { stdio: "inherit", cwd: config.WAHA_ROOT });
 
         // 6️⃣ Reload nginx
         execSync(`nginx -t && nginx -s reload`, { stdio: "inherit" });
@@ -112,6 +98,6 @@ app.post("/sessions", (req, res) => {
     }
 });
 
-app.listen(8081, () => {
-    console.log("Session Manager running on 127.0.0.1:8081");
+app.listen(4000, () => {
+    console.log("Session Manager running on 127.0.0.1:4000");
 });

@@ -3,5 +3,5 @@ module.exports = {
     SESSIONS_DIR: "/waha-core/sessions",
     COMPOSE_FILE: "/waha-core/docker-compose.yml",
     NGINX_CONF: "/waha-core/nginx/waha-map.conf",
-    START_PORT: 4001
+    START_PORT: 4000
 };
