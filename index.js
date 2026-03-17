@@ -79,7 +79,7 @@ app.post("/sessions", (req, res) => {
         fs.appendFileSync(config.NGINX_CONF, nginxAppend);
 
         // 4️⃣ Pull image dulu kalau belum ada
-        execSync(`docker image inspect devlikeapro/waha-plus:gows || docker pull devlikeapro/waha-plus:gows`, { stdio: "inherit" });
+        execSync(`docker image inspect devlikeapro/waha:gows || docker pull devlikeapro/waha:gows`, { stdio: "inherit" });
 
         // 5️⃣ Jalankan container
         execSync(`docker compose up -d waha-${sessionId}`, { stdio: "inherit", cwd: config.WAHA_ROOT });
