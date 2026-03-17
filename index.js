@@ -88,8 +88,6 @@ app.post("/sessions", (req, res) => {
         // simpan kembali
         fs.writeFileSync(config.COMPOSE_FILE, lines.join("\n"));
 
-        fs.appendFileSync(config.COMPOSE_FILE, serviceBlock);
-
         // 3️⃣ Update nginx map
         const nginxAppend = `${sessionId} ${port};\n`;
         fs.appendFileSync(config.NGINX_CONF, nginxAppend);
