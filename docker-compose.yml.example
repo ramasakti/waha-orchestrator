@@ -1,5 +1,5 @@
   waha-{session}:
-    image: devlikeapro/waha-plus:gows
+    image: devlikeapro/waha:gows
     container_name: waha-{session}
     restart: always
     dns:
