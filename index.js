@@ -7,17 +7,17 @@ const config = require("./config");
 const app = express();
 app.use(express.json());
 
-const stateFile = path.join(__dirname, "state.json");
 
-function loadState() {
-    if (!fs.existsSync(stateFile)) {
-        fs.writeFileSync(stateFile, JSON.stringify({ lastPort: config.START_PORT }, null, 2));
-    }
-    return JSON.parse(fs.readFileSync(stateFile, "utf8"));
-}
 
-function saveState(state) {
-    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+// Baca semua port dari nginx map, return port terakhir + 1
+function getNextPort() {
+    if (!fs.existsSync(config.NGINX_CONF)) return config.START_PORT;
+    const content = fs.readFileSync(config.NGINX_CONF, "utf8");
+    const ports = [...content.matchAll(/^\S+\s+(\d+);/gm)]
+        .map(m => parseInt(m[1], 10))
+        .filter(n => !isNaN(n));
+    if (ports.length === 0) return config.START_PORT;
+    return Math.max(...ports) + 1;
 }
 
 function validSessionId(id) {
@@ -43,8 +43,7 @@ app.post("/sessions", (req, res) => {
         return res.status(409).json({ error: "Session already exists" });
     }
 
-    const state = loadState();
-    const port = state.lastPort + 1;
+    const port = getNextPort();
 
     try {
         // 1. Buat folder session
@@ -84,12 +83,8 @@ app.post("/sessions", (req, res) => {
         // 5️⃣ Jalankan container
         execSync(`docker compose up -d waha-${sessionId}`, { stdio: "inherit", cwd: config.WAHA_ROOT });
 
-        // 6️⃣ Reload nginx
-        execSync(`nginx -t && nginx -s reload`, { stdio: "inherit" });
-
-        // 7️⃣ Update state
-        state.lastPort = port;
-        saveState(state);
+        // 6️⃣ Reload nginx (sudo diperlukan jika tidak berjalan sebagai root)
+        execSync(`sudo nginx -t && sudo nginx -s reload`, { stdio: "inherit" });
 
         res.json({ success: true, sessionId, port });
     } catch (err) {
