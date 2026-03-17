@@ -93,6 +93,73 @@ app.post("/sessions", (req, res) => {
     }
 });
 
+// GET /sessions — list semua session dari nginx map
+app.get("/sessions", (req, res) => {
+    if (!fs.existsSync(config.NGINX_CONF)) {
+        return res.json([]);
+    }
+    const content = fs.readFileSync(config.NGINX_CONF, "utf8");
+    const sessions = [...content.matchAll(/^(\S+)\s+(\d+);/gm)].map(m => ({
+        sessionId: m[1],
+        port: parseInt(m[2], 10),
+    }));
+    res.json(sessions);
+});
+
+// DELETE /sessions/:sessionId — hentikan container, hapus semua config & data
+app.delete("/sessions/:sessionId", (req, res) => {
+    const { sessionId } = req.params;
+
+    if (!validSessionId(sessionId)) {
+        return res.status(400).json({ error: "Invalid sessionId" });
+    }
+
+    const sessionDir = path.join(config.SESSIONS_DIR, sessionId);
+    if (!fs.existsSync(sessionDir) && !serviceExists(sessionId)) {
+        return res.status(404).json({ error: "Session not found" });
+    }
+
+    try {
+        // 1️⃣ Stop & remove container
+        execSync(`docker compose stop waha-${sessionId} && docker compose rm -f waha-${sessionId}`, {
+            stdio: "inherit",
+            cwd: config.WAHA_ROOT,
+        });
+
+        // 2️⃣ Hapus service block dari docker-compose.yml
+        if (fs.existsSync(config.COMPOSE_FILE)) {
+            let compose = fs.readFileSync(config.COMPOSE_FILE, "utf8");
+            // Hapus blok mulai dari "  waha-<id>:" sampai sebelum service berikutnya atau akhir services
+            const svcRegex = new RegExp(
+                `(  waha-${sessionId}:[\\s\\S]*?)(?=\\n  \\S|\\nnetworks:|\\nvolumes:|$)`,
+                "m"
+            );
+            compose = compose.replace(svcRegex, "");
+            fs.writeFileSync(config.COMPOSE_FILE, compose);
+        }
+
+        // 3️⃣ Hapus entry dari nginx map
+        if (fs.existsSync(config.NGINX_CONF)) {
+            let nginxConf = fs.readFileSync(config.NGINX_CONF, "utf8");
+            nginxConf = nginxConf.replace(new RegExp(`^${sessionId}\\s+\\d+;\\n?`, "m"), "");
+            fs.writeFileSync(config.NGINX_CONF, nginxConf);
+        }
+
+        // 4️⃣ Hapus folder session
+        if (fs.existsSync(sessionDir)) {
+            fs.rmSync(sessionDir, { recursive: true, force: true });
+        }
+
+        // 5️⃣ Reload nginx
+        execSync(`sudo nginx -t && sudo nginx -s reload`, { stdio: "inherit" });
+
+        res.json({ success: true, sessionId });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to delete session", details: err.message });
+    }
+});
+
 app.listen(4000, () => {
     console.log("Session Manager running on 127.0.0.1:4000");
 });
