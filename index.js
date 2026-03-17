@@ -53,17 +53,18 @@ app.post("/sessions", (req, res) => {
 
         // 2. Append docker-compose service
         // Baca file dulu
+        // baca file
         let composeFile = fs.readFileSync(config.COMPOSE_FILE, "utf8");
 
-        // Cari posisi setelah "services:" untuk append
-        const lines = composeFile.split("\n");
-        let insertIndex = lines.findIndex(line => line.trim() === "services:");
-        if (insertIndex === -1) {
-            throw new Error("docker-compose.yml tidak memiliki blok 'services:'");
-        }
-        insertIndex++; // append setelah baris services:
+        // pecah per baris
+        let lines = composeFile.split("\n");
 
-        // Tambahkan service dengan indentasi 2 spasi
+        // cari index 'services:'
+        let insertIndex = lines.findIndex(line => line.trim() === "services:");
+        if (insertIndex === -1) throw new Error("docker-compose.yml tidak memiliki blok 'services:'");
+        insertIndex++; // insert setelah 'services:'
+
+        // service block dengan indentasi 2 spasi
         const serviceBlock = `
   waha-${sessionId}:
     image: devlikeapro/waha:gows
@@ -81,10 +82,10 @@ app.post("/sessions", (req, res) => {
       - waha_network
 `;
 
-        // Masukkan service ke dalam lines array
+        // masukkan service
         lines.splice(insertIndex, 0, serviceBlock);
 
-        // Simpan kembali file
+        // simpan kembali
         fs.writeFileSync(config.COMPOSE_FILE, lines.join("\n"));
 
         fs.appendFileSync(config.COMPOSE_FILE, serviceBlock);
